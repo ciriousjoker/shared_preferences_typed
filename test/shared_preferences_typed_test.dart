@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,36 +41,69 @@ void main() {
   });
 
   test('Async, nullable', () async {
-    _testKeyAsyncNullable(_kBoolNullable, _demoBool);
-    _testKeyAsyncNullable(_kDoubleNullable, _demoDouble);
-    _testKeyAsyncNullable(_kIntNullable, _demoInt);
-    _testKeyAsyncNullable(_kStringNullable, _demoString);
-    _testKeyAsyncNullable(_kListNullable, _demoList);
+    await _testKeyAsyncNullable(_kBoolNullable, _demoBool);
+    await _testKeyAsyncNullable(_kDoubleNullable, _demoDouble);
+    await _testKeyAsyncNullable(_kIntNullable, _demoInt);
+    await _testKeyAsyncNullable(_kStringNullable, _demoString);
+    await _testKeyAsyncNullable(_kListNullable, _demoList);
   });
 
   test('Async, non-nullable', () async {
-    _testKeyAsyncNonNullable(_kBool, _demoBool, _defaultBool);
-    _testKeyAsyncNonNullable(_kDouble, _demoDouble, _defaultDouble);
-    _testKeyAsyncNonNullable(_kInt, _demoInt, _defaultInt);
-    _testKeyAsyncNonNullable(_kString, _demoString, _defaultString);
-    _testKeyAsyncNonNullable(_kList, _demoList, _defaultList);
+    await _testKeyAsyncNonNullable(_kBool, _demoBool, _defaultBool);
+    await _testKeyAsyncNonNullable(_kDouble, _demoDouble, _defaultDouble);
+    await _testKeyAsyncNonNullable(_kInt, _demoInt, _defaultInt);
+    await _testKeyAsyncNonNullable(_kString, _demoString, _defaultString);
+    await _testKeyAsyncNonNullable(_kList, _demoList, _defaultList);
   });
 
   test('Sync, nullable', () async {
-    _testKeySyncNullable(_kBoolNullable, _demoBool);
-    _testKeySyncNullable(_kDoubleNullable, _demoDouble);
-    _testKeySyncNullable(_kIntNullable, _demoInt);
-    _testKeySyncNullable(_kStringNullable, _demoString);
-    _testKeySyncNullable(_kListNullable, _demoList);
+    await _testKeySyncNullable(_kBoolNullable, _demoBool);
+    await _testKeySyncNullable(_kDoubleNullable, _demoDouble);
+    await _testKeySyncNullable(_kIntNullable, _demoInt);
+    await _testKeySyncNullable(_kStringNullable, _demoString);
+    await _testKeySyncNullable(_kListNullable, _demoList);
   });
 
   test('Sync, non-nullable', () async {
-    _testKeySyncNonNullable(_kBool, _demoBool, _defaultBool);
-    _testKeySyncNonNullable(_kDouble, _demoDouble, _defaultDouble);
-    _testKeySyncNonNullable(_kInt, _demoInt, _defaultInt);
-    _testKeySyncNonNullable(_kString, _demoString, _defaultString);
-    _testKeySyncNonNullable(_kList, _demoList, _defaultList);
+    await _testKeySyncNonNullable(_kBool, _demoBool, _defaultBool);
+    await _testKeySyncNonNullable(_kDouble, _demoDouble, _defaultDouble);
+    await _testKeySyncNonNullable(_kInt, _demoInt, _defaultInt);
+    await _testKeySyncNonNullable(_kString, _demoString, _defaultString);
+    await _testKeySyncNonNullable(_kList, _demoList, _defaultList);
   });
+
+  test('Write waits for the underlying persistence operation', () async {
+    final persistenceResult = Completer<bool>();
+    final prefs = _ControlledSharedPreferences(persistenceResult.future);
+    var completed = false;
+
+    final write =
+        _kString.write(_demoString, prefs).whenComplete(() => completed = true);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(completed, isFalse);
+    persistenceResult.complete(true);
+    await write;
+    expect(completed, isTrue);
+  });
+
+  test('Write reports a failed persistence operation', () async {
+    final prefs = _ControlledSharedPreferences(Future.value(false));
+
+    await expectLater(_kString.write(_demoString, prefs), throwsStateError);
+  });
+}
+
+class _ControlledSharedPreferences implements SharedPreferences {
+  _ControlledSharedPreferences(this._persistenceResult);
+
+  final Future<bool> _persistenceResult;
+
+  @override
+  Future<bool> setString(String key, String value) => _persistenceResult;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 Future<void> _testKeyAsyncNullable<T>(
