@@ -2,25 +2,35 @@ name: test
 
 on: [push]
 
+# Cancel superseded runs for the same branch or tag.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   test:
+    name: Test
     timeout-minutes: 15
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: subosito/flutter-action@v2
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Flutter from .fvmrc
+        uses: kuhnroyal/flutter-fvm-config-action@v3.3
         with:
-          flutter-version: "2.x"
-          channel: "stable"
+          setup: true
           cache: true
-          cache-key: flutter # optional, change this to force refresh cache
-          cache-path: ${{ runner.tool_cache }}/flutter # optional, change this to specify the cache path
+
+      - name: Install dependencies
+        run: flutter pub get
 
       - name: Analyze
         run: flutter analyze --fatal-infos
 
-      - name: Get Packages
-        run: flutter pub get
-
-      - run: flutter test --coverage --reporter expanded
+      - name: Test
+        run: flutter test --coverage --reporter expanded

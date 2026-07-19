@@ -27,6 +27,7 @@
 .dart_tool/
 .packages
 build/
+coverage/
 
 
 # Flutter Version Manager
