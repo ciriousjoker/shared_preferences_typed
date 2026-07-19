@@ -45,6 +45,10 @@ class PrefKeyNullable<T> {
   /// Use `.read()` if you don't have an existing [SharedPreferences] instance.
   /// Returns [defaultValue] during test mode.
   Future<T?> readSync(SharedPreferences prefs) async {
+    // Dart 2 can't parse Dart 3's `case const (List<String>)` constant pattern,
+    // while bare `case List<String>` is invalid in Dart 3. Replace this alias with
+    // `case const (List<String>)` once Dart versions below 3 are no longer supported.
+    const Type stringListType = List<String>;
     switch (T) {
       case bool:
         return prefs.getBool(key) as T?;
@@ -54,7 +58,7 @@ class PrefKeyNullable<T> {
         return prefs.getInt(key) as T?;
       case String:
         return prefs.getString(key) as T?;
-      case List<String>:
+      case stringListType:
         return prefs.getStringList(key) as T?;
       default:
         return prefs.get(key) as T?;
@@ -65,7 +69,7 @@ class PrefKeyNullable<T> {
   /// Does nothing during test mode.
   Future<void> write(T value, [SharedPreferences? prefs]) async {
     final p = prefs ?? await SharedPreferences.getInstance();
-    writeSync(value, p);
+    await writeSync(value, p);
   }
 
   /// Write a value to [SharedPreferences].
@@ -76,24 +80,32 @@ class PrefKeyNullable<T> {
       value != null,
       "You can't write null to SharedPreferences. Use key.remove() instead.",
     );
+    const Type stringListType = List<String>;
+    late final Future<bool> writeResult;
     switch (T) {
       case bool:
-        prefs.setBool(key, value as bool);
+        writeResult = prefs.setBool(key, value as bool);
         break;
       case double:
-        prefs.setDouble(key, value as double);
+        writeResult = prefs.setDouble(key, value as double);
         break;
       case int:
-        prefs.setInt(key, value as int);
+        writeResult = prefs.setInt(key, value as int);
         break;
       case String:
-        prefs.setString(key, value as String);
+        writeResult = prefs.setString(key, value as String);
         break;
-      case List<String>:
-        prefs.setStringList(key, value as List<String>);
+      case stringListType:
+        writeResult = prefs.setStringList(key, value as List<String>);
         break;
       default:
-        assert(false, "write was called with an unsupported type: $T");
+        throw UnsupportedError(
+          "write was called with an unsupported type: $T",
+        );
+    }
+
+    if (!await writeResult) {
+      throw StateError("Could not persist SharedPreferences key '$key'.");
     }
   }
 
